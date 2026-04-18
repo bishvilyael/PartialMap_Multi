@@ -1,0 +1,837 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <title>Leaflet GeoJSON Period</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin=""
+  />
+
+  <style>
+    html, body {
+      height: 100%;
+      margin: 0;
+      font-family: Arial, sans-serif;
+    }
+
+    #map {
+      width: 100%;
+      height: 100%;
+    }
+
+    .leaflet-popup-content-wrapper {
+      border-radius: 10px;
+    }
+
+    .leaflet-popup-content {
+      margin: 12px 14px;
+      min-width: 240px;
+      max-width: 340px;
+      direction: rtl;
+      text-align: right;
+      line-height: 1.4;
+      font-size: 14px;
+    }
+
+    .popup-title {
+      font-weight: bold;
+      font-size: 16px;
+      margin-bottom: 8px;
+    }
+
+    .popup-body img {
+      display: block;
+      max-width: 100%;
+      max-height: 260px;
+      width: auto;
+      height: auto;
+      object-fit: contain;
+      margin: 8px auto;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      background: #fff;
+    }
+
+    .popup-body a {
+      word-break: break-word;
+      overflow-wrap: anywhere;
+    }
+
+    .popup-image-error {
+      color: #b00020;
+      font-size: 12px;
+      margin-top: 6px;
+      text-align: center;
+    }
+
+    .map-header {
+      position: absolute;
+      z-index: 1000;
+      top: 10px;
+      right: 70px;
+      left: 70px;
+      display: flex;
+      justify-content: center;
+      pointer-events: none;
+    }
+
+    .map-header-box {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      background: rgba(255,255,255,0.95);
+      padding: 8px 18px;
+      border: 1px solid #ccc;
+      border-radius: 12px;
+      box-shadow: 0 1px 6px rgba(0,0,0,0.15);
+      font-size: 22px;
+      font-weight: bold;
+      line-height: 1.3;
+      text-align: center;
+    }
+
+    .header-icon {
+      width: 28px;
+      height: 28px;
+      object-fit: contain;
+      flex: 0 0 auto;
+    }
+
+    .mobile-tools {
+      position: absolute;
+      z-index: 1001;
+      top: 70px;
+      right: 10px;
+      display: flex;
+      gap: 8px;
+    }
+
+    .tool-btn {
+      width: 44px;
+      height: 44px;
+      border: 1px solid #bbb;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.97);
+      box-shadow: 0 1px 6px rgba(0,0,0,0.15);
+      cursor: pointer;
+      font-size: 22px;
+    }
+
+    .panel-box {
+      display: none;
+    }
+
+    .panel-box.open {
+      display: block;
+    }
+
+    .search-panel,
+    .list-panel,
+    .status-box {
+      position: absolute;
+      z-index: 1002;
+      background: rgba(255,255,255,0.98);
+      border: 1px solid #ccc;
+      border-radius: 12px;
+      box-shadow: 0 1px 6px rgba(0,0,0,0.15);
+      padding: 10px;
+    }
+
+    .search-panel {
+      top: 70px;
+      right: 10px;
+      width: 320px;
+      max-width: calc(100vw - 20px);
+      touch-action: none;
+    }
+
+    .list-panel {
+      top: 125px;
+      left: 10px;
+      width: 280px;
+      max-width: calc(100vw - 20px);
+      max-height: 50vh;
+      overflow-y: auto;
+    }
+
+    .status-box {
+      bottom: 10px;
+      left: 10px;
+      width: 250px;
+      max-width: calc(100vw - 20px);
+      white-space: pre-line;
+      font-size: 13px;
+    }
+
+    .panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .search-header {
+      cursor: move;
+      user-select: none;
+    }
+
+    .panel-title {
+      font-weight: bold;
+      font-size: 15px;
+    }
+
+    .panel-close-btn,
+    .search-mini-btn {
+      width: 32px;
+      height: 32px;
+      border: 1px solid #bbb;
+      background: #fff;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 16px;
+    }
+
+    .search-header-buttons {
+      display: flex;
+      gap: 6px;
+    }
+
+    .search-panel input[type="text"] {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 8px;
+      font-size: 14px;
+      border: 1px solid #bbb;
+      border-radius: 6px;
+    }
+
+    .search-exact {
+      display: block;
+      margin-top: 8px;
+      font-size: 13px;
+    }
+
+    .search-results {
+      margin-top: 8px;
+      max-height: 220px;
+      overflow-y: auto;
+      border-top: 1px solid #ddd;
+      padding-top: 6px;
+    }
+
+    .search-result-item {
+      padding: 8px 4px;
+      border-bottom: 1px solid #eee;
+      cursor: pointer;
+    }
+
+    .search-result-item:hover {
+      background: #f3f3f3;
+    }
+
+    .search-result-line {
+      font-size: 13px;
+      color: #333;
+      margin-top: 2px;
+      word-break: break-word;
+    }
+
+    .search-result-line:first-child {
+      margin-top: 0;
+      font-weight: bold;
+      font-size: 14px;
+    }
+
+    .custom-marker {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      white-space: nowrap;
+      transform: translate(-4px, -18px);
+      direction: ltr;
+    }
+
+    .custom-marker img {
+      width: 14px;
+      height: 20px;
+      object-fit: contain;
+      display: block;
+      flex: 0 0 auto;
+    }
+
+    .custom-marker-label {
+      font-size: 13px;
+      font-weight: bold;
+      color: #083c68;
+      text-shadow:
+        -1px -1px 0 #fff,
+         1px -1px 0 #fff,
+        -1px  1px 0 #fff,
+         1px  1px 0 #fff;
+      direction: ltr;
+      line-height: 1;
+    }
+
+    .list-item {
+      font-size: 13px;
+      padding: 4px 0;
+      cursor: pointer;
+      border-bottom: 1px dotted #eee;
+    }
+
+    .list-item:hover {
+      background: #f7f7f7;
+    }
+
+    @media (max-width: 768px) {
+      .leaflet-popup-content {
+        min-width: 200px;
+        max-width: 260px;
+        font-size: 13px;
+      }
+
+      .map-header {
+        top: 6px;
+        right: 48px;
+        left: 48px;
+      }
+
+      .map-header-box {
+        font-size: 14px;
+        padding: 5px 8px;
+        gap: 4px;
+      }
+
+      .header-icon {
+        width: 18px;
+        height: 18px;
+      }
+
+      .mobile-tools {
+        top: 52px;
+        right: 8px;
+        gap: 6px;
+      }
+
+      .tool-btn {
+        width: 40px;
+        height: 40px;
+        font-size: 20px;
+      }
+
+      .search-panel,
+      .list-panel,
+      .status-box {
+        top: 94px;
+        right: 8px;
+        left: 8px;
+        width: auto;
+        max-width: none;
+        bottom: auto;
+        padding: 8px;
+      }
+
+      .search-panel {
+        max-height: 34vh;
+        overflow: auto;
+      }
+
+      .list-panel {
+        max-height: 34vh;
+        overflow: auto;
+      }
+
+      .status-box {
+        max-height: 20vh;
+        overflow: auto;
+      }
+
+      .panel-title { font-size: 14px; }
+      .panel-close-btn,
+      .search-mini-btn { width: 28px; height: 28px; font-size: 15px; }
+      .search-panel input[type="text"] { padding: 7px; font-size: 13px; }
+      .search-results { max-height: 18vh; }
+      .list-item,
+      .search-result-line { font-size: 12px; }
+    }
+  </style>
+</head>
+<body>
+
+<div id="map"></div>
+
+<div class="map-header">
+  <div class="map-header-box">
+    <img class="header-icon" src="icons/header-right.png" alt="">
+    <span id="mapTitleText"></span>
+    <img class="header-icon" src="icons/header-right.png" alt="">
+  </div>
+</div>
+
+<div class="mobile-tools">
+  <button id="searchToggle" class="tool-btn" title="חיפוש">🔍</button>
+  <button id="listToggle" class="tool-btn" title="רשימת יעלים">📋</button>
+  <button id="statusToggle" class="tool-btn" title="מידע">ℹ</button>
+</div>
+
+<div id="searchPanel" class="search-panel panel-box">
+  <div id="searchHeader" class="panel-header search-header">
+    <div class="panel-title">חיפוש נקודה</div>
+    <div class="search-header-buttons">
+      <button id="searchMinimize" class="search-mini-btn" title="מזער">—</button>
+      <button id="searchClose" class="search-mini-btn" title="סגור">✕</button>
+    </div>
+  </div>
+
+  <input id="searchInput" type="text" placeholder="חיפוש לפי שם, Badge, מזהה, תאריך..." />
+  <label class="search-exact">
+    <input id="exactSearch" type="checkbox" />
+    חיפוש מדויק
+  </label>
+  <div id="searchResults" class="search-results"></div>
+</div>
+
+<div id="listPanel" class="list-panel panel-box">
+  <div class="panel-header">
+    <div class="panel-title">רשימת יעלים ממויינת</div>
+    <button id="listClose" class="panel-close-btn" title="סגור">✕</button>
+  </div>
+  <div id="listBody"></div>
+</div>
+
+<div id="status" class="status-box panel-box">
+  <div class="panel-header">
+    <div class="panel-title">מידע</div>
+    <button id="statusClose" class="panel-close-btn" title="סגור">✕</button>
+  </div>
+  <div id="statusBody">טוען שכבה...</div>
+</div>
+
+<script
+  src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+  integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+  crossorigin=""
+></script>
+
+<script>
+  const PAGE_KEY = 'index_period_geojson';
+  const DEFAULT_MAP_TITLE = 'מפת יעלים - מרץ 2026';
+  const GEOJSON_FILE = 'json/period.geojson';
+  const LIST_NAME = 'רשימת יעלים ממויינת';
+  const DEFAULT_ZOOM_ON_SEARCH = 15;
+  const MAX_SEARCH_RESULTS = 50;
+  const MARKER_ICON_URL = 'icons/marker.png';
+
+  const map = L.map('map', { preferCanvas: true }).setView([31.5, 34.8], 7);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap contributors'
+  }).addTo(map);
+
+  loadMapTitle();
+
+  const searchToggle = document.getElementById('searchToggle');
+  const listToggle = document.getElementById('listToggle');
+  const statusToggle = document.getElementById('statusToggle');
+
+  const searchPanel = document.getElementById('searchPanel');
+  const listPanel = document.getElementById('listPanel');
+  const statusPanel = document.getElementById('status');
+
+  const searchHeader = document.getElementById('searchHeader');
+  const searchClose = document.getElementById('searchClose');
+  const searchMinimize = document.getElementById('searchMinimize');
+  const listClose = document.getElementById('listClose');
+  const statusClose = document.getElementById('statusClose');
+
+  const searchInput = document.getElementById('searchInput');
+  const exactSearch = document.getElementById('exactSearch');
+  const searchResultsEl = document.getElementById('searchResults');
+  const listBodyEl = document.getElementById('listBody');
+  const statusBodyEl = document.getElementById('statusBody');
+
+  const searchableItems = [];
+  const allBounds = [];
+  let markerCount = 0;
+  let layerGroup = null;
+
+  async function loadMapTitle() {
+    try {
+      const response = await fetch('map-titles.json', { cache: 'no-store' });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const titles = await response.json();
+      document.getElementById('mapTitleText').textContent = titles[PAGE_KEY] || DEFAULT_MAP_TITLE;
+    } catch (err) {
+      document.getElementById('mapTitleText').textContent = DEFAULT_MAP_TITLE;
+      console.warn('Failed to load map-titles.json', err);
+    }
+  }
+
+  function setStatus(text) {
+    statusBodyEl.textContent = text;
+  }
+
+  function closeAllPanels() {
+    searchPanel.classList.remove('open');
+    listPanel.classList.remove('open');
+    statusPanel.classList.remove('open');
+  }
+
+  function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text || '';
+    return div.innerHTML;
+  }
+
+  function extractDriveFileId(url) {
+    if (!url) return null;
+
+    let m = url.match(/drive\.google\.com\/file\/d\/([A-Za-z0-9_-]+)/i);
+    if (m) return m[1];
+
+    m = url.match(/drive\.google\.com\/uc\?[^"' ]*id=([A-Za-z0-9_-]+)/i);
+    if (m) return m[1];
+
+    m = url.match(/drive\.google\.com\/thumbnail\?[^"' ]*id=([A-Za-z0-9_-]+)/i);
+    if (m) return m[1];
+
+    m = url.match(/lh3\.googleusercontent\.com\/d\/([A-Za-z0-9_-]+)/i);
+    if (m) return m[1];
+
+    return null;
+  }
+
+  function convertDriveUrl(url) {
+    const fileId = extractDriveFileId(url);
+    if (!fileId) return url;
+    return `https://lh3.googleusercontent.com/d/${fileId}=w1000`;
+  }
+
+  function normalizeDescriptionHtml(html) {
+    const temp = document.createElement('div');
+    temp.innerHTML = html || '';
+
+    const imgs = temp.querySelectorAll('img');
+    imgs.forEach((img) => {
+      const originalSrc = img.getAttribute('src') || '';
+      const newSrc = convertDriveUrl(originalSrc);
+      img.setAttribute('src', newSrc);
+      img.removeAttribute('loading');
+
+      img.onerror = function () {
+        const err = document.createElement('div');
+        err.className = 'popup-image-error';
+        err.textContent = 'התמונה לא נטענה';
+        this.insertAdjacentElement('afterend', err);
+        this.style.display = 'none';
+      };
+    });
+
+    const links = temp.querySelectorAll('a');
+    links.forEach((a) => {
+      const href = a.getAttribute('href') || '';
+      a.setAttribute('target', '_blank');
+      a.setAttribute('rel', 'noopener noreferrer');
+
+      if (/facebook\.com/i.test(href)) {
+        a.textContent = 'פייסבוק';
+
+        const parentText = (a.parentNode?.textContent || '').trim();
+        if (/^fb\s*:?\s*$/i.test(parentText.replace('פייסבוק', '').trim())) {
+          a.parentNode.innerHTML = '';
+          a.parentNode.appendChild(a);
+        }
+      }
+    });
+
+    temp.querySelectorAll('*').forEach((el) => {
+      const text = (el.textContent || '').trim();
+      if (/^FB\s*:?\s*$/i.test(text) && el.children.length === 0) {
+        el.remove();
+      }
+    });
+
+    return temp.innerHTML;
+  }
+
+  function stripHtml(html) {
+    const div = document.createElement('div');
+    div.innerHTML = html || '';
+    return (div.textContent || div.innerText || '').trim();
+  }
+
+  function getFirstTagText(parent, tagName) {
+    const node = parent.getElementsByTagName(tagName)[0];
+    return node ? node.textContent.trim() : '';
+  }
+
+  function parseCoordinates(coordText) {
+    if (!coordText) return null;
+    const parts = coordText.trim().replace(/\s+/g, ' ').split(' ')[0].split(',');
+    if (parts.length < 2) return null;
+
+    const lon = parseFloat(parts[0]);
+    const lat = parseFloat(parts[1]);
+    if (Number.isNaN(lat) || Number.isNaN(lon)) return null;
+
+    return { lat, lon };
+  }
+
+  function createMarkerIcon(labelText) {
+    return L.divIcon({
+      className: '',
+      html: `
+        <div class="custom-marker">
+          <img src="${MARKER_ICON_URL}" alt="">
+          <div class="custom-marker-label">${escapeHtml(labelText || '')}</div>
+        </div>
+      `,
+      iconSize: [70, 21],
+      iconAnchor: [9, 20],
+      popupAnchor: [0, -18]
+    });
+  }
+
+  function extractSearchLines(name, descriptionText) {
+    const lines = [];
+    if (name) lines.push(name);
+
+    const parts = descriptionText
+      .split(/\n+/)
+      .map(x => x.trim())
+      .filter(Boolean);
+
+    for (const p of parts) {
+      if (/^https?:\/\//i.test(p)) continue;
+      if (/facebook\.com/i.test(p)) continue;
+      if (/^fb\s*:?\s*$/i.test(p)) continue;
+      if (/^פייסבוק$/i.test(p)) continue;
+      lines.push(p);
+      if (lines.length >= 5) break;
+    }
+
+    return lines;
+  }
+
+  function renderSearchResults(items) {
+    if (!items.length) {
+      searchResultsEl.innerHTML = '<div class="search-result-line">לא נמצאו תוצאות</div>';
+      return;
+    }
+
+    searchResultsEl.innerHTML = '';
+
+    items.forEach(item => {
+      const row = document.createElement('div');
+      row.className = 'search-result-item';
+
+      const lines = extractSearchLines(item.name, item.descriptionText);
+
+      row.innerHTML = lines
+        .map(line => `<div class="search-result-line">${escapeHtml(line)}</div>`)
+        .join('');
+
+      row.addEventListener('click', () => {
+        closeAllPanels();
+        map.setView([item.lat, item.lon], DEFAULT_ZOOM_ON_SEARCH);
+        item.marker.openPopup();
+      });
+
+      searchResultsEl.appendChild(row);
+    });
+  }
+
+  function escapeRegExp(text) {
+    return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
+  function doSearch() {
+    const qLower = searchInput.value.trim().toLowerCase();
+    if (!qLower) {
+      searchResultsEl.innerHTML = '';
+      return;
+    }
+
+    let results;
+    if (exactSearch.checked) {
+      const pattern = new RegExp(`(^|[^A-Za-z0-9_])${escapeRegExp(qLower)}([^A-Za-z0-9_]|$)`, 'i');
+      results = searchableItems.filter(item => pattern.test(item.searchTextLower));
+    } else {
+      results = searchableItems.filter(item => item.searchTextLower.includes(qLower));
+    }
+
+    renderSearchResults(results.slice(0, MAX_SEARCH_RESULTS));
+  }
+
+  function buildList() {
+    listBodyEl.innerHTML = '';
+    searchableItems.forEach(item => {
+      const row = document.createElement('div');
+      row.className = 'list-item';
+      row.textContent = item.name || 'ללא שם';
+      row.addEventListener('click', () => {
+        closeAllPanels();
+        map.setView([item.lat, item.lon], DEFAULT_ZOOM_ON_SEARCH);
+        item.marker.openPopup();
+      });
+      listBodyEl.appendChild(row);
+    });
+  }
+
+  function getFeatureProperty(feature, keys) {
+    const props = feature && feature.properties ? feature.properties : {};
+    for (const key of keys) {
+      if (props[key] !== undefined && props[key] !== null && props[key] !== '') return props[key];
+    }
+    return '';
+  }
+
+  async function loadPeriodGeoJson() {
+    const response = await fetch(GEOJSON_FILE);
+    if (!response.ok) {
+      throw new Error(`Failed to load ${GEOJSON_FILE} (HTTP ${response.status})`);
+    }
+
+    const data = await response.json();
+    layerGroup = L.layerGroup();
+
+    L.geoJSON(data, {
+      pointToLayer: function (feature, latlng) {
+        const name = getFeatureProperty(feature, ['name', 'Name', 'title', 'Title']) || 'ללא שם';
+        return L.marker(latlng, { icon: createMarkerIcon(name) });
+      },
+      onEachFeature: function (feature, marker) {
+        const name = getFeatureProperty(feature, ['name', 'Name', 'title', 'Title']) || 'ללא שם';
+        const descriptionRaw = getFeatureProperty(feature, ['description', 'Description', 'desc', 'Desc', 'popup', 'Popup']) || '';
+        const descriptionHtml = normalizeDescriptionHtml(descriptionRaw);
+        const descriptionText = stripHtml(descriptionHtml);
+
+        marker.bindPopup(`
+          <div class="popup-wrap">
+            <div class="popup-title">${escapeHtml(name)}</div>
+            <div class="popup-body">${descriptionHtml}</div>
+          </div>
+        `, {
+          maxWidth: 340,
+          minWidth: 220
+        });
+
+        layerGroup.addLayer(marker);
+        allBounds.push(marker.getLatLng());
+        markerCount++;
+
+        const searchText = `${name} ${descriptionText} ${LIST_NAME}`;
+        searchableItems.push({
+          name,
+          lat: marker.getLatLng().lat,
+          lon: marker.getLatLng().lng,
+          marker,
+          descriptionText,
+          searchText,
+          searchTextLower: searchText.toLowerCase()
+        });
+      }
+    });
+  }
+
+  async function initMap() {
+    try {
+      await loadPeriodGeoJson();
+      buildList();
+
+      if (allBounds.length > 0) {
+        map.fitBounds(allBounds, { padding: [20, 20] });
+      }
+
+      setStatus(`${LIST_NAME}\n${markerCount} נקודות`);
+    } catch (err) {
+      console.error(err);
+      setStatus('שגיאה בטעינת הקובץ');
+      alert('שגיאה בטעינת הקובץ: ' + err.message);
+    }
+  }
+
+  searchToggle.addEventListener('click', () => {
+    const willOpen = !searchPanel.classList.contains('open');
+    closeAllPanels();
+    if (willOpen) {
+      searchPanel.classList.add('open');
+      searchInput.focus();
+    }
+  });
+
+  listToggle.addEventListener('click', () => {
+    const willOpen = !listPanel.classList.contains('open');
+    closeAllPanels();
+    if (willOpen) listPanel.classList.add('open');
+  });
+
+  statusToggle.addEventListener('click', () => {
+    const willOpen = !statusPanel.classList.contains('open');
+    closeAllPanels();
+    if (willOpen) statusPanel.classList.add('open');
+  });
+
+  searchClose.addEventListener('click', () => searchPanel.classList.remove('open'));
+  searchMinimize.addEventListener('click', () => searchPanel.classList.remove('open'));
+  listClose.addEventListener('click', () => listPanel.classList.remove('open'));
+  statusClose.addEventListener('click', () => statusPanel.classList.remove('open'));
+
+  searchInput.addEventListener('input', doSearch);
+  exactSearch.addEventListener('change', doSearch);
+
+  (function makeSearchPanelDraggable() {
+    let isDragging = false;
+    let startX = 0;
+    let startY = 0;
+    let startRight = 0;
+    let startTop = 0;
+
+    function getRightPx(el) {
+      return parseFloat(window.getComputedStyle(el).right) || 0;
+    }
+
+    function getTopPx(el) {
+      return parseFloat(window.getComputedStyle(el).top) || 0;
+    }
+
+    function onPointerMove(e) {
+      if (!isDragging || window.innerWidth <= 768) return;
+
+      const dx = e.clientX - startX;
+      const dy = e.clientY - startY;
+
+      searchPanel.style.right = `${Math.max(0, startRight - dx)}px`;
+      searchPanel.style.top = `${Math.max(0, startTop + dy)}px`;
+    }
+
+    function onPointerUp() {
+      isDragging = false;
+      document.removeEventListener('pointermove', onPointerMove);
+      document.removeEventListener('pointerup', onPointerUp);
+    }
+
+    searchHeader.addEventListener('pointerdown', (event) => {
+      if (window.innerWidth <= 768) return;
+
+      isDragging = true;
+      startX = event.clientX;
+      startY = event.clientY;
+      startRight = getRightPx(searchPanel);
+      startTop = getTopPx(searchPanel);
+
+      document.addEventListener('pointermove', onPointerMove);
+      document.addEventListener('pointerup', onPointerUp);
+    });
+  })();
+
+  initMap();
+</script>
+
+</body>
+</html>
