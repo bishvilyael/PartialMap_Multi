@@ -24,6 +24,11 @@
     <span id="mapTitleText"></span>
     <img class="header-icon" src="icons/header-right.png" alt="">
   </div>
+
+  <div class="month-selector-box">
+    <label for="monthSelect">בחר חודש:</label>
+    <select id="monthSelect"></select>
+  </div>
 </div>
 
 <div class="mobile-tools">
@@ -84,6 +89,36 @@
 <script>
 (async function () {
   const statusBody = document.getElementById("statusBody");
+  const monthSelect = document.getElementById("monthSelect");
+
+  function getHebrewMonthName(monthNumber) {
+    const months = {
+      "01": "ינואר",
+      "02": "פברואר",
+      "03": "מרץ",
+      "04": "אפריל",
+      "05": "מאי",
+      "06": "יוני",
+      "07": "יולי",
+      "08": "אוגוסט",
+      "09": "ספטמבר",
+      "10": "אוקטובר",
+      "11": "נובמבר",
+      "12": "דצמבר"
+    };
+
+    return months[monthNumber] || monthNumber;
+  }
+
+  function mapIdToDisplayName(mapId) {
+    const parts = mapId.split("-");
+    if (parts.length !== 2) return mapId;
+
+    const year = parts[0];
+    const month = parts[1];
+
+    return `${getHebrewMonthName(month)} ${year}`;
+  }
 
   try {
     const params = new URLSearchParams(window.location.search);
@@ -101,8 +136,6 @@
       throw new Error("maps.json ריק או לא תקין");
     }
 
-    let selectedMap;
-
     const today = new Date();
 
     const currentYear = today.getFullYear();
@@ -116,43 +149,63 @@
     );
 
     const previousYear = previousMonthDate.getFullYear();
-    const previousMonth = String(
-      previousMonthDate.getMonth() + 1
-    ).padStart(2, "0");
-
+    const previousMonth = String(previousMonthDate.getMonth() + 1).padStart(2, "0");
     const previousMonthId = `${previousYear}-${previousMonth}`;
 
-    if (requestedMap) {
+    const availableMaps = maps
+      .filter(m => m.id < currentMonthId)
+      .sort((a, b) => b.id.localeCompare(a.id));
 
+    if (availableMaps.length === 0) {
+      throw new Error("אין מפות זמינות מחודשים קודמים");
+    }
+
+    let selectedMap;
+
+    if (requestedMap) {
       if (requestedMap >= currentMonthId) {
-        throw new Error(
-          "לא ניתן להציג מפה של החודש הנוכחי או של חודש עתידי"
-        );
+        throw new Error("לא ניתן להציג מפה של החודש הנוכחי או של חודש עתידי");
       }
 
-      selectedMap = maps.find(m => m.id === requestedMap);
+      selectedMap = availableMaps.find(m => m.id === requestedMap);
 
     } else {
-      selectedMap = maps.find(m => m.id === previousMonthId);
+      selectedMap =
+        availableMaps.find(m => m.id === previousMonthId) ||
+        availableMaps[0];
     }
 
     if (!selectedMap) {
       throw new Error("המפה המבוקשת לא קיימת ב-maps.json");
     }
 
+    monthSelect.innerHTML = "";
+
+    availableMaps.forEach(m => {
+      const option = document.createElement("option");
+      option.value = m.id;
+      option.textContent = mapIdToDisplayName(m.id);
+
+      if (m.id === selectedMap.id) {
+        option.selected = true;
+      }
+
+      monthSelect.appendChild(option);
+    });
+
+    monthSelect.addEventListener("change", function () {
+      window.location.href = `?map=${this.value}`;
+    });
+
     window.CURRENT_MAP_ID = selectedMap.id;
     window.CURRENT_MAP_FOLDER = `json/${selectedMap.id}`;
-    window.PERIOD_GEOJSON_URL =
-      `${window.CURRENT_MAP_FOLDER}/period.geojson`;
-    window.MAP_TITLE_URL =
-      `${window.CURRENT_MAP_FOLDER}/map-title.json`;
+    window.PERIOD_GEOJSON_URL = `${window.CURRENT_MAP_FOLDER}/period.geojson`;
+    window.MAP_TITLE_URL = `${window.CURRENT_MAP_FOLDER}/map-title.json`;
 
     const originalFetch = window.fetch.bind(window);
 
     window.fetch = function (resource, options) {
-
       if (typeof resource === "string") {
-
         if (resource === "json/period.geojson") {
           resource = window.PERIOD_GEOJSON_URL;
         }
@@ -181,12 +234,8 @@
       await new Promise((resolve, reject) => {
         const script = document.createElement("script");
         script.src = src;
-
         script.onload = resolve;
-
-        script.onerror = () =>
-          reject(new Error("שגיאה בטעינת " + src));
-
+        script.onerror = () => reject(new Error("שגיאה בטעינת " + src));
         document.body.appendChild(script);
       });
     }
@@ -195,8 +244,7 @@
     console.error(err);
 
     if (statusBody) {
-      statusBody.textContent =
-        "שגיאה בטעינת המפה: " + err.message;
+      statusBody.textContent = "שגיאה בטעינת המפה: " + err.message;
     }
   }
 })();
