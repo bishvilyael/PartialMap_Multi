@@ -14,6 +14,7 @@
 
   <link rel="stylesheet" href="css/app.css" />
 </head>
+
 <body>
 <div id="map"></div>
 
@@ -45,11 +46,16 @@
       <button id="searchClose" class="search-mini-btn" title="סגור">✕</button>
     </div>
   </div>
+
   <div class="search-input-row">
     <input id="searchInput" type="text" placeholder="חיפוש לפי שם, Badge, מזהה, תאריך..." />
     <button id="searchActionBtn" class="search-action-btn" type="button">חפש</button>
   </div>
-  <label id="exactSearchLabel" class="search-exact"><input id="exactSearch" type="checkbox" /> חיפוש מדויק</label>
+
+  <label id="exactSearchLabel" class="search-exact">
+    <input id="exactSearch" type="checkbox" /> חיפוש מדויק
+  </label>
+
   <div id="searchResults" class="search-results"></div>
 </div>
 
@@ -66,18 +72,93 @@
     <div class="panel-title">מידע</div>
     <button id="statusClose" class="panel-close-btn" title="סגור">✕</button>
   </div>
-  <div id="statusBody">טוען שכבות...</div>
+  <div id="statusBody">טוען נתונים...</div>
 </div>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-<script src="js/config.js"></script>
-<script src="js/state.js"></script>
-<script src="js/dom.js"></script>
-<script src="js/title.js"></script>
-<script src="js/helpers.js"></script>
-<script src="js/search.js"></script>
-<script src="js/geojson.js"></script>
-<script src="js/ui.js"></script>
-<script src="js/main.js"></script>
+<script
+  src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+  integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+  crossorigin="">
+</script>
+
+<script>
+(async function () {
+  const statusBody = document.getElementById("statusBody");
+
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const requestedMap = params.get("map");
+
+    const mapsResponse = await fetch("maps.json");
+    if (!mapsResponse.ok) {
+      throw new Error("לא נמצא הקובץ maps.json");
+    }
+
+    const maps = await mapsResponse.json();
+
+    if (!Array.isArray(maps) || maps.length === 0) {
+      throw new Error("maps.json ריק או לא תקין");
+    }
+
+    const selectedMap = requestedMap
+      ? maps.find(m => m.id === requestedMap)
+      : maps[maps.length - 1];
+
+    if (!selectedMap) {
+      throw new Error("המפה המבוקשת לא קיימת ב-maps.json: " + requestedMap);
+    }
+
+    window.CURRENT_MAP_ID = selectedMap.id;
+    window.CURRENT_MAP_FOLDER = `json/${selectedMap.id}`;
+    window.PERIOD_GEOJSON_URL = `${window.CURRENT_MAP_FOLDER}/period.geojson`;
+    window.MAP_TITLE_URL = `${window.CURRENT_MAP_FOLDER}/map-title.json`;
+
+    const originalFetch = window.fetch.bind(window);
+
+    window.fetch = function (resource, options) {
+      if (typeof resource === "string") {
+        if (resource === "json/period.geojson") {
+          resource = window.PERIOD_GEOJSON_URL;
+        }
+
+        if (resource === "map-title.json") {
+          resource = window.MAP_TITLE_URL;
+        }
+      }
+
+      return originalFetch(resource, options);
+    };
+
+    const scripts = [
+      "js/config.js",
+      "js/state.js",
+      "js/dom.js",
+      "js/title.js",
+      "js/helpers.js",
+      "js/search.js",
+      "js/geojson.js",
+      "js/ui.js",
+      "js/main.js"
+    ];
+
+    for (const src of scripts) {
+      await new Promise((resolve, reject) => {
+        const script = document.createElement("script");
+        script.src = src;
+        script.onload = resolve;
+        script.onerror = () => reject(new Error("שגיאה בטעינת " + src));
+        document.body.appendChild(script);
+      });
+    }
+
+  } catch (err) {
+    console.error(err);
+    if (statusBody) {
+      statusBody.textContent = "שגיאה בטעינת המפה: " + err.message;
+    }
+  }
+})();
+</script>
+
 </body>
 </html>
