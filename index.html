@@ -90,6 +90,7 @@
     const requestedMap = params.get("map");
 
     const mapsResponse = await fetch("maps.json");
+
     if (!mapsResponse.ok) {
       throw new Error("לא נמצא הקובץ maps.json");
     }
@@ -100,23 +101,58 @@
       throw new Error("maps.json ריק או לא תקין");
     }
 
-    const selectedMap = requestedMap
-      ? maps.find(m => m.id === requestedMap)
-      : maps[maps.length - 1];
+    let selectedMap;
+
+    const today = new Date();
+
+    const currentYear = today.getFullYear();
+    const currentMonth = String(today.getMonth() + 1).padStart(2, "0");
+    const currentMonthId = `${currentYear}-${currentMonth}`;
+
+    const previousMonthDate = new Date(
+      today.getFullYear(),
+      today.getMonth() - 1,
+      1
+    );
+
+    const previousYear = previousMonthDate.getFullYear();
+    const previousMonth = String(
+      previousMonthDate.getMonth() + 1
+    ).padStart(2, "0");
+
+    const previousMonthId = `${previousYear}-${previousMonth}`;
+
+    if (requestedMap) {
+
+      if (requestedMap >= currentMonthId) {
+        throw new Error(
+          "לא ניתן להציג מפה של החודש הנוכחי או של חודש עתידי"
+        );
+      }
+
+      selectedMap = maps.find(m => m.id === requestedMap);
+
+    } else {
+      selectedMap = maps.find(m => m.id === previousMonthId);
+    }
 
     if (!selectedMap) {
-      throw new Error("המפה המבוקשת לא קיימת ב-maps.json: " + requestedMap);
+      throw new Error("המפה המבוקשת לא קיימת ב-maps.json");
     }
 
     window.CURRENT_MAP_ID = selectedMap.id;
     window.CURRENT_MAP_FOLDER = `json/${selectedMap.id}`;
-    window.PERIOD_GEOJSON_URL = `${window.CURRENT_MAP_FOLDER}/period.geojson`;
-    window.MAP_TITLE_URL = `${window.CURRENT_MAP_FOLDER}/map-title.json`;
+    window.PERIOD_GEOJSON_URL =
+      `${window.CURRENT_MAP_FOLDER}/period.geojson`;
+    window.MAP_TITLE_URL =
+      `${window.CURRENT_MAP_FOLDER}/map-title.json`;
 
     const originalFetch = window.fetch.bind(window);
 
     window.fetch = function (resource, options) {
+
       if (typeof resource === "string") {
+
         if (resource === "json/period.geojson") {
           resource = window.PERIOD_GEOJSON_URL;
         }
@@ -145,16 +181,22 @@
       await new Promise((resolve, reject) => {
         const script = document.createElement("script");
         script.src = src;
+
         script.onload = resolve;
-        script.onerror = () => reject(new Error("שגיאה בטעינת " + src));
+
+        script.onerror = () =>
+          reject(new Error("שגיאה בטעינת " + src));
+
         document.body.appendChild(script);
       });
     }
 
   } catch (err) {
     console.error(err);
+
     if (statusBody) {
-      statusBody.textContent = "שגיאה בטעינת המפה: " + err.message;
+      statusBody.textContent =
+        "שגיאה בטעינת המפה: " + err.message;
     }
   }
 })();
