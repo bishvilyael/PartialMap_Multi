@@ -192,3 +192,13 @@ html, body { height: 100%; margin: 0; font-family: Arial, sans-serif; }
     max-width: 130px;
   }
 }
+.month-selector-box {
+  z-index: 3000 !important;
+  pointer-events: auto !important;
+}
+
+.month-selector-box select,
+.month-selector-box option,
+.month-selector-box label {
+  pointer-events: auto !important;
+}
