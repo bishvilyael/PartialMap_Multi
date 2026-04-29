@@ -155,3 +155,40 @@ html, body { height: 100%; margin: 0; font-family: Arial, sans-serif; }
   .search-results { max-height: 18vh; }
   .layer-item, .list-item, .search-result-line { font-size: 12px; }
 }
+.month-selector-box {
+  position: absolute;
+  top: 58px;
+  right: 50%;
+  transform: translateX(50%);
+  z-index: 1000;
+  background: rgba(255, 255, 255, 0.95);
+  padding: 6px 10px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+  font-size: 14px;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  white-space: nowrap;
+}
+
+.month-selector-box select {
+  font-size: 14px;
+  padding: 3px 6px;
+  border-radius: 5px;
+  border: 1px solid #999;
+  background: white;
+}
+
+@media (max-width: 700px) {
+  .month-selector-box {
+    top: 72px;
+    font-size: 13px;
+    padding: 5px 8px;
+  }
+
+  .month-selector-box select {
+    font-size: 13px;
+    max-width: 130px;
+  }
+}
