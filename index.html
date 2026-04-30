@@ -29,6 +29,7 @@
 <div class="month-selector-box">
   <label for="monthSelect">בחר חודש:</label>
   <select id="monthSelect"></select>
+  <button id="fullMapBtn" type="button">מפה מלאה</button>
 </div>
 
 <div class="mobile-tools">
@@ -90,6 +91,13 @@
 (async function () {
   const statusBody = document.getElementById("statusBody");
   const monthSelect = document.getElementById("monthSelect");
+  const fullMapBtn = document.getElementById("fullMapBtn");
+
+  const FULL_MAP_URL = "https://bishvilyael.github.io/FullMap_J_Split";
+
+  let cachedGeoJsonText = null;
+  let cachedGeoJsonUrl = null;
+  let selectedLastModified = null;
 
   function getHebrewMonthName(monthNumber) {
     const months = {
@@ -120,9 +128,86 @@
     return `${getHebrewMonthName(month)} ${year}`;
   }
 
+  function formatDateForHebrew(dateText) {
+    if (!dateText) return "";
+
+    const d = new Date(dateText);
+    if (isNaN(d.getTime())) return "";
+
+    return d.toLocaleDateString("he-IL", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric"
+    });
+  }
+
+  async function checkGeoJsonContent(mapId) {
+    const url = `json/${mapId}/period.geojson`;
+
+    try {
+      const response = await fetch(url, { cache: "no-store" });
+
+      if (!response.ok) {
+        return {
+          exists: false,
+          hasContent: false,
+          text: "",
+          lastModified: null,
+          url
+        };
+      }
+
+      const text = await response.text();
+
+      return {
+        exists: true,
+        hasContent: text.trim().length > 0,
+        text,
+        lastModified: response.headers.get("Last-Modified"),
+        url
+      };
+
+    } catch (err) {
+      return {
+        exists: false,
+        hasContent: false,
+        text: "",
+        lastModified: null,
+        url
+      };
+    }
+  }
+
+  function addUpdateDateToTitle() {
+    const updateText = formatDateForHebrew(selectedLastModified);
+    if (!updateText) return;
+
+    const titleEl = document.getElementById("mapTitleText");
+    if (!titleEl) return;
+
+    if (titleEl.dataset.updateAdded === "1") return;
+
+    const currentTitle = titleEl.textContent.trim();
+    if (!currentTitle) {
+      setTimeout(addUpdateDateToTitle, 300);
+      return;
+    }
+
+    titleEl.innerHTML =
+      `${currentTitle}<br><span style="font-size: 13px; font-weight: normal;">עודכן: ${updateText}</span>`;
+
+    titleEl.dataset.updateAdded = "1";
+  }
+
   try {
     const params = new URLSearchParams(window.location.search);
     const requestedMap = params.get("map");
+
+    if (fullMapBtn) {
+      fullMapBtn.addEventListener("click", function () {
+        window.open(FULL_MAP_URL, "_blank");
+      });
+    }
 
     const mapsResponse = await fetch("maps.json");
 
@@ -152,27 +237,47 @@
     const previousMonth = String(previousMonthDate.getMonth() + 1).padStart(2, "0");
     const previousMonthId = `${previousYear}-${previousMonth}`;
 
+    const currentMapInIndex = maps.find(m => m.id === currentMonthId);
+    const currentMonthCheck = currentMapInIndex
+      ? await checkGeoJsonContent(currentMonthId)
+      : { hasContent: false };
+
     const availableMaps = maps
-      .filter(m => m.id < currentMonthId)
+      .filter(m => {
+        if (m.id < currentMonthId) return true;
+        if (m.id === currentMonthId && currentMonthCheck.hasContent) return true;
+        return false;
+      })
       .sort((a, b) => b.id.localeCompare(a.id));
 
     if (availableMaps.length === 0) {
-      throw new Error("אין מפות זמינות מחודשים קודמים");
+      throw new Error("אין מפות זמינות");
     }
 
     let selectedMap;
 
     if (requestedMap) {
-      if (requestedMap >= currentMonthId) {
-        throw new Error("לא ניתן להציג מפה של החודש הנוכחי או של חודש עתידי");
+      if (requestedMap > currentMonthId) {
+        throw new Error("לא ניתן להציג מפה של חודש עתידי");
+      }
+
+      if (requestedMap === currentMonthId && !currentMonthCheck.hasContent) {
+        throw new Error("לקובץ החודש הנוכחי אין עדיין תוכן");
       }
 
       selectedMap = availableMaps.find(m => m.id === requestedMap);
 
     } else {
-      selectedMap =
-        availableMaps.find(m => m.id === previousMonthId) ||
-        availableMaps[0];
+      if (currentMapInIndex && currentMonthCheck.hasContent) {
+        selectedMap = currentMapInIndex;
+        cachedGeoJsonText = currentMonthCheck.text;
+        cachedGeoJsonUrl = currentMonthCheck.url;
+        selectedLastModified = currentMonthCheck.lastModified;
+      } else {
+        selectedMap =
+          availableMaps.find(m => m.id === previousMonthId) ||
+          availableMaps[0];
+      }
     }
 
     if (!selectedMap) {
@@ -202,12 +307,29 @@
     window.PERIOD_GEOJSON_URL = `${window.CURRENT_MAP_FOLDER}/period.geojson`;
     window.MAP_TITLE_URL = `${window.CURRENT_MAP_FOLDER}/map-title.json`;
 
+    if (!cachedGeoJsonText || cachedGeoJsonUrl !== window.PERIOD_GEOJSON_URL) {
+      const selectedCheck = await checkGeoJsonContent(selectedMap.id);
+
+      if (!selectedCheck.hasContent) {
+        throw new Error("לקובץ period.geojson של החודש שנבחר אין תוכן");
+      }
+
+      cachedGeoJsonText = selectedCheck.text;
+      cachedGeoJsonUrl = selectedCheck.url;
+      selectedLastModified = selectedCheck.lastModified;
+    }
+
     const originalFetch = window.fetch.bind(window);
 
     window.fetch = function (resource, options) {
       if (typeof resource === "string") {
         if (resource === "json/period.geojson") {
-          resource = window.PERIOD_GEOJSON_URL;
+          return Promise.resolve(new Response(cachedGeoJsonText, {
+            status: 200,
+            headers: {
+              "Content-Type": "application/json"
+            }
+          }));
         }
 
         if (resource === "map-title.json") {
@@ -239,6 +361,9 @@
         document.body.appendChild(script);
       });
     }
+
+    setTimeout(addUpdateDateToTitle, 500);
+    setTimeout(addUpdateDateToTitle, 1200);
 
   } catch (err) {
     console.error(err);
