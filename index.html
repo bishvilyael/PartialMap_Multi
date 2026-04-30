@@ -362,8 +362,10 @@
       });
     }
 
-    setTimeout(addUpdateDateToTitle, 500);
-    setTimeout(addUpdateDateToTitle, 1200);
+	if (selectedMap.id === currentMonthId) {
+	  setTimeout(addUpdateDateToTitle, 500);
+	  setTimeout(addUpdateDateToTitle, 1200);
+	}
 
   } catch (err) {
     console.error(err);
