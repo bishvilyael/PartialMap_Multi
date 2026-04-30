@@ -195,3 +195,15 @@ html, body { height: 100%; margin: 0; font-family: Arial, sans-serif; }
     max-width: 140px;
   }
 }
+#fullMapBtn {
+  font-size: 14px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid #999;
+  background: white;
+  cursor: pointer;
+}
+
+#fullMapBtn:hover {
+  background: #f2f2f2;
+}
